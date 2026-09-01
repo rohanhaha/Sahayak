@@ -90,31 +90,54 @@ class WorkerJob {
 
   /// Create a WorkerJob from JSON (matching API contract and Supabase schema)
   factory WorkerJob.fromJson(Map<String, dynamic> json) {
+    // Extract nested service name
+    String sName = 'Service';
+    int sAmount = 49900;
+    if (json['services'] is Map) {
+      sName = json['services']['name'] ?? 'Service';
+      sAmount = (json['services']['base_price_amount'] as num?)?.toInt() ?? 49900;
+    } else if (json['service_name'] != null) {
+      sName = json['service_name'];
+    }
+
+    // Extract nested customer name
+    String cName = 'Customer';
+    String cPhone = '+91 98765 43210';
+    if (json['profiles'] is Map) {
+      cName = json['profiles']['full_name'] ?? 'Customer';
+      cPhone = json['profiles']['phone'] ?? '+91 98765 43210';
+    } else if (json['customer_name'] != null) {
+      cName = json['customer_name'];
+    }
+
+    // Extract time
+    String sTime = 'Today, Flexible Slot';
+    if (json['scheduled_at'] != null) {
+      try {
+        final dt = DateTime.parse(json['scheduled_at']).toLocal();
+        sTime = '${dt.day}/${dt.month} at ${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
+      } catch (_) {
+        sTime = json['scheduled_at'];
+      }
+    }
+
     return WorkerJob(
       bookingId: json['booking_id'] as String? ?? json['id'] as String? ?? '',
       serviceId: json['service_id'] as String?,
       workerId: json['worker_id'] as String?,
       customerId: json['customer_id'] as String?,
-      customerName: json['customer_name'] as String? ??
-          (json['customer'] is Map ? json['customer']['full_name'] as String? : null) ??
-          'Customer',
-      customerPhone: json['customer_phone'] as String? ??
-          (json['customer'] is Map ? json['customer']['phone'] as String? : null) ??
-          '+91 98765 43210',
-      serviceName: json['service_name'] as String? ??
-          (json['service'] is Map ? json['service']['name'] as String? : null) ??
-          'Service',
-      address: json['address'] as String? ?? '',
-      scheduledTime: json['scheduled_time'] as String? ?? json['scheduled_at'] as String? ?? '',
+      customerName: cName,
+      customerPhone: cPhone,
+      serviceName: sName,
+      address: json['address'] as String? ?? 'Indiranagar, Bengaluru',
+      scheduledTime: sTime,
       scheduledAt: json['scheduled_at'] as String?,
-      amount: json['amount'] as int? ??
-          json['base_price_amount'] as int? ??
-          json['total_amount'] as int? ??
-          0,
+      amount: (json['amount'] as num?)?.toInt() ?? (json['base_price_amount'] as num?)?.toInt() ?? sAmount,
       status: json['status'] as String? ?? 'PENDING',
       notes: json['notes'] as String?,
     );
   }
+
 
   /// Convert WorkerJob to JSON (matching API contract and Supabase schema)
   Map<String, dynamic> toJson() {

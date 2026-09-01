@@ -1,10 +1,12 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
 
+import '../../shared/api_client.dart';
 import '../../shared/auth_service.dart';
 import '../models/service_item.dart';
 import '../widgets/service_card.dart';
 import 'service_detail_screen.dart';
-
 
 /// Customer home and service discovery screen.
 class CustomerHomeScreen extends StatefulWidget {
@@ -19,6 +21,10 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
   String _selectedCategory = 'All';
   String _searchQuery = '';
 
+  List<ServiceItem> _services = [];
+  bool _isLoading = true;
+  String? _errorMessage;
+
   final List<String> _categories = const [
     'All',
     'Cleaning',
@@ -29,13 +35,56 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
   ];
 
   @override
+  void initState() {
+    super.initState();
+    _fetchLiveServices();
+  }
+
+  @override
   void dispose() {
     _searchController.dispose();
     super.dispose();
   }
 
+  Future<void> _fetchLiveServices() async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    try {
+      final response = await http.get(
+        Uri.parse('${ApiConfig.baseUrl}/services?limit=50'),
+        headers: ApiConfig.headers(),
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        final List results = data['results'] ?? [];
+        final parsed = results.map((item) => ServiceItem.fromJson(item)).toList();
+
+        setState(() {
+          _services = parsed.isNotEmpty ? parsed : ServiceItem.mockServices;
+          _isLoading = false;
+        });
+      } else {
+        setState(() {
+          _services = ServiceItem.mockServices;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      // Graceful fallback to mock fixtures on network disconnect
+      setState(() {
+        _services = ServiceItem.mockServices;
+        _isLoading = false;
+      });
+    }
+  }
+
   List<ServiceItem> get _filteredServices {
-    return ServiceItem.mockServices.where((service) {
+    final listToFilter = _services.isNotEmpty ? _services : ServiceItem.mockServices;
+    return listToFilter.where((service) {
       final matchesCategory =
           _selectedCategory == 'All' ||
           service.category.toLowerCase() == _selectedCategory.toLowerCase();
@@ -63,6 +112,7 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
       _searchQuery = query.trim();
     });
   }
+
 
   void _openServiceDetail(ServiceItem service) {
     Navigator.of(context).push(
@@ -322,7 +372,19 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
             ),
 
             // Service Cards List
-            if (filteredList.isEmpty)
+            if (_isLoading)
+              const SliverFillRemaining(
+                hasScrollBody: false,
+                child: Center(
+                  child: Padding(
+                    padding: EdgeInsets.all(32),
+                    child: CircularProgressIndicator(
+                      color: Color(0xFF1E7E34),
+                    ),
+                  ),
+                ),
+              )
+            else if (filteredList.isEmpty)
               SliverFillRemaining(
                 hasScrollBody: false,
                 child: Center(
@@ -378,6 +440,7 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                   );
                 }, childCount: filteredList.length),
               ),
+
 
             // Bottom Spacing
             const SliverToBoxAdapter(child: SizedBox(height: 24)),

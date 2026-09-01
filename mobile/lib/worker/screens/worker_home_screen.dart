@@ -1,9 +1,12 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+
+import '../../shared/api_client.dart';
 import '../../shared/auth_service.dart';
 import '../models/worker_job.dart';
 import '../widgets/worker_header.dart';
 import '../widgets/job_request_card.dart';
-
 
 /// Main Dashboard and Operations Screen for Workers
 class WorkerHomeScreen extends StatefulWidget {
@@ -22,6 +25,7 @@ class _WorkerHomeScreenState extends State<WorkerHomeScreen> with SingleTickerPr
   int _completedJobsCount = 4;
   List<WorkerJob> _jobs = [];
   List<WorkerAvailabilitySlot> _availabilitySlots = [];
+  bool _isLoadingJobs = true;
 
   // Filter for jobs tab: 'ALL' | 'PENDING' | 'ACCEPTED'
   String _selectedJobFilter = 'ALL';
@@ -30,15 +34,41 @@ class _WorkerHomeScreenState extends State<WorkerHomeScreen> with SingleTickerPr
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
-    // Initialize with mock data
     _jobs = List.from(mockWorkerJobs);
     _availabilitySlots = List.from(mockWeeklyAvailability);
+    _fetchLiveBookings();
   }
 
   @override
   void dispose() {
     _tabController.dispose();
     super.dispose();
+  }
+
+  Future<void> _fetchLiveBookings() async {
+    setState(() => _isLoadingJobs = true);
+    try {
+      final token = await AuthService.getToken();
+      final response = await http.get(
+        Uri.parse('${ApiConfig.baseUrl}/bookings?limit=50'),
+        headers: ApiConfig.headers(token),
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        final List results = data['results'] ?? [];
+        final parsed = results.map((item) => WorkerJob.fromJson(item)).toList();
+
+        setState(() {
+          _jobs = parsed.isNotEmpty ? parsed : List.from(mockWorkerJobs);
+          _isLoadingJobs = false;
+        });
+      } else {
+        setState(() => _isLoadingJobs = false);
+      }
+    } catch (_) {
+      setState(() => _isLoadingJobs = false);
+    }
   }
 
   int get _pendingCount => _jobs.where((j) => j.isPending).length;
@@ -77,7 +107,7 @@ class _WorkerHomeScreenState extends State<WorkerHomeScreen> with SingleTickerPr
     );
   }
 
-  void _handleAcceptJob(WorkerJob job) {
+  Future<void> _handleAcceptJob(WorkerJob job) async {
     setState(() {
       final index = _jobs.indexWhere((j) => j.bookingId == job.bookingId);
       if (index != -1) {
@@ -85,6 +115,16 @@ class _WorkerHomeScreenState extends State<WorkerHomeScreen> with SingleTickerPr
       }
     });
 
+    try {
+      final token = await AuthService.getToken();
+      await http.patch(
+        Uri.parse('${ApiConfig.baseUrl}/bookings/${job.bookingId}/status'),
+        headers: ApiConfig.headers(token),
+        body: jsonEncode({'status': 'ACCEPTED'}),
+      );
+    } catch (_) {}
+
+    if (!mounted) return;
     ScaffoldMessenger.of(context).clearSnackBars();
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -117,11 +157,21 @@ class _WorkerHomeScreenState extends State<WorkerHomeScreen> with SingleTickerPr
     );
   }
 
-  void _handleDeclineJob(WorkerJob job) {
+  Future<void> _handleDeclineJob(WorkerJob job) async {
     setState(() {
       _jobs.removeWhere((j) => j.bookingId == job.bookingId);
     });
 
+    try {
+      final token = await AuthService.getToken();
+      await http.patch(
+        Uri.parse('${ApiConfig.baseUrl}/bookings/${job.bookingId}/status'),
+        headers: ApiConfig.headers(token),
+        body: jsonEncode({'status': 'CANCELLED'}),
+      );
+    } catch (_) {}
+
+    if (!mounted) return;
     ScaffoldMessenger.of(context).clearSnackBars();
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -144,7 +194,7 @@ class _WorkerHomeScreenState extends State<WorkerHomeScreen> with SingleTickerPr
     );
   }
 
-  void _handleStartJob(WorkerJob job) {
+  Future<void> _handleStartJob(WorkerJob job) async {
     setState(() {
       final index = _jobs.indexWhere((j) => j.bookingId == job.bookingId);
       if (index != -1) {
@@ -152,6 +202,16 @@ class _WorkerHomeScreenState extends State<WorkerHomeScreen> with SingleTickerPr
       }
     });
 
+    try {
+      final token = await AuthService.getToken();
+      await http.patch(
+        Uri.parse('${ApiConfig.baseUrl}/bookings/${job.bookingId}/status'),
+        headers: ApiConfig.headers(token),
+        body: jsonEncode({'status': 'IN_PROGRESS'}),
+      );
+    } catch (_) {}
+
+    if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text('Job for ${job.customerName} is now In Progress.'),
@@ -161,7 +221,7 @@ class _WorkerHomeScreenState extends State<WorkerHomeScreen> with SingleTickerPr
     );
   }
 
-  void _handleCompleteJob(WorkerJob job) {
+  Future<void> _handleCompleteJob(WorkerJob job) async {
     setState(() {
       final index = _jobs.indexWhere((j) => j.bookingId == job.bookingId);
       if (index != -1) {
@@ -171,6 +231,16 @@ class _WorkerHomeScreenState extends State<WorkerHomeScreen> with SingleTickerPr
       }
     });
 
+    try {
+      final token = await AuthService.getToken();
+      await http.patch(
+        Uri.parse('${ApiConfig.baseUrl}/bookings/${job.bookingId}/status'),
+        headers: ApiConfig.headers(token),
+        body: jsonEncode({'status': 'COMPLETED'}),
+      );
+    } catch (_) {}
+
+    if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text('Job completed! ${job.formattedAmount} added to Today\'s Earnings.'),
@@ -179,6 +249,7 @@ class _WorkerHomeScreenState extends State<WorkerHomeScreen> with SingleTickerPr
       ),
     );
   }
+
 
   void _toggleAvailabilitySlot(int index, bool value) {
     setState(() {

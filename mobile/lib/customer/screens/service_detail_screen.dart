@@ -1,6 +1,11 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
 
+import '../../shared/api_client.dart';
+import '../../shared/auth_service.dart';
 import '../models/service_item.dart';
+
 
 /// Screen displaying comprehensive details and price breakdown for a selected service.
 class ServiceDetailScreen extends StatelessWidget {
@@ -447,7 +452,9 @@ class ServiceDetailScreen extends StatelessWidget {
                     ),
                   );
                 },
+                onPressed: () => _openBookingSheet(context),
                 style: FilledButton.styleFrom(
+                  backgroundColor: const Color(0xFF1E7E34),
                   padding: const EdgeInsets.symmetric(vertical: 14),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
@@ -468,6 +475,159 @@ class ServiceDetailScreen extends StatelessWidget {
       ),
     );
   }
+
+  void _openBookingSheet(BuildContext context) {
+    final addressController = TextEditingController(text: 'Indiranagar, Bengaluru');
+    final notesController = TextEditingController();
+    DateTime scheduledDate = DateTime.now().add(const Duration(hours: 2));
+    bool isSubmitting = false;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            return Padding(
+              padding: EdgeInsets.only(
+                left: 20,
+                right: 20,
+                top: 20,
+                bottom: MediaQuery.of(context).viewInsets.bottom + 24,
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'Book ${service.name}',
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF0F172A),
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.close),
+                        onPressed: () => Navigator.of(ctx).pop(),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: addressController,
+                    decoration: InputDecoration(
+                      labelText: 'Service Address',
+                      prefixIcon: const Icon(Icons.location_on_outlined),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: notesController,
+                    decoration: InputDecoration(
+                      labelText: 'Special Notes / Instructions',
+                      hintText: 'e.g. Please bring extra ladder',
+                      prefixIcon: const Icon(Icons.note_alt_outlined),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  FilledButton(
+                    onPressed: isSubmitting
+                        ? null
+                        : () async {
+                            setModalState(() => isSubmitting = true);
+                            final token = await AuthService.getToken();
+
+                            try {
+                              final response = await http.post(
+                                Uri.parse('${ApiConfig.baseUrl}/bookings'),
+                                headers: ApiConfig.headers(token),
+                                body: jsonEncode({
+                                  'service_id': service.serviceId,
+                                  'scheduled_at': scheduledDate.toIso8601String(),
+                                  'address': addressController.text.trim(),
+                                  'notes': notesController.text.trim(),
+                                  'lat': 12.9716,
+                                  'lng': 77.5946,
+                                }),
+                              );
+
+                              if (context.mounted) {
+                                Navigator.of(ctx).pop(); // Close bottom sheet
+                                if (response.statusCode == 201) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Row(
+                                        children: [
+                                          const Icon(Icons.check_circle, color: Colors.white),
+                                          const SizedBox(width: 8),
+                                          Expanded(
+                                            child: Text(
+                                              'Booking confirmed for ${service.name}! Workers have been notified.',
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      backgroundColor: const Color(0xFF1E7E34),
+                                      behavior: SnackBarBehavior.floating,
+                                      duration: const Duration(seconds: 4),
+                                    ),
+                                  );
+                                } else {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text('Failed to book service. Please try again.'),
+                                      backgroundColor: Colors.red,
+                                    ),
+                                  );
+                                }
+                              }
+                            } catch (e) {
+                              if (context.mounted) {
+                                Navigator.of(ctx).pop();
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text('Error: $e'),
+                                    backgroundColor: Colors.red,
+                                  ),
+                                );
+                              }
+                            }
+                          },
+                    style: FilledButton.styleFrom(
+                      backgroundColor: const Color(0xFF1E7E34),
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                    child: isSubmitting
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                          )
+                        : Text(
+                            'Confirm Booking (${service.formattedPrice})',
+                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                          ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
 
   Widget _buildPriceRow(
     BuildContext context,
