@@ -12,6 +12,7 @@ class WorkerHeader extends StatelessWidget {
   final String todayEarnings;
   final int completedJobsCount;
   final int pendingRequestsCount;
+  final VoidCallback? onLogout;
 
   const WorkerHeader({
     super.key,
@@ -24,7 +25,9 @@ class WorkerHeader extends StatelessWidget {
     this.todayEarnings = '₹1,200',
     this.completedJobsCount = 4,
     this.pendingRequestsCount = 2,
+    this.onLogout,
   });
+
 
   @override
   Widget build(BuildContext context) {
@@ -183,8 +186,17 @@ class WorkerHeader extends StatelessWidget {
                       ],
                     ),
                   ),
+                  if (onLogout != null) ...[
+                    const SizedBox(width: 4),
+                    IconButton(
+                      icon: const Icon(Icons.logout_rounded, color: Colors.white, size: 20),
+                      tooltip: 'Log Out',
+                      onPressed: onLogout,
+                    ),
+                  ],
                 ],
               ),
+
 
               const SizedBox(height: 20),
 

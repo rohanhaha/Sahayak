@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 
+import '../../shared/auth_service.dart';
 import '../models/service_item.dart';
 import '../widgets/service_card.dart';
 import 'service_detail_screen.dart';
+
 
 /// Customer home and service discovery screen.
 class CustomerHomeScreen extends StatefulWidget {
@@ -121,7 +123,7 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                           ],
                         ),
                         const Spacer(),
-                        // Notification / Avatar button
+                        // Notification button
                         IconButton.filledTonal(
                           onPressed: () {
                             ScaffoldMessenger.of(context).showSnackBar(
@@ -134,6 +136,41 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                           icon: const Icon(
                             Icons.notifications_none_rounded,
                             size: 20,
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        // Logout button
+                        IconButton.filledTonal(
+                          onPressed: () async {
+                            final shouldLogout = await showDialog<bool>(
+                              context: context,
+                              builder: (ctx) => AlertDialog(
+                                title: const Text('Log Out'),
+                                content: const Text('Are you sure you want to log out of Sahayak?'),
+                                actions: [
+                                  TextButton(
+                                    onPressed: () => Navigator.of(ctx).pop(false),
+                                    child: const Text('Cancel'),
+                                  ),
+                                  FilledButton(
+                                    style: FilledButton.styleFrom(backgroundColor: Colors.red),
+                                    onPressed: () => Navigator.of(ctx).pop(true),
+                                    child: const Text('Log Out'),
+                                  ),
+                                ],
+                              ),
+                            );
+
+                            if (shouldLogout == true && context.mounted) {
+                              await AuthService.logout();
+                              if (context.mounted) {
+                                Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
+                              }
+                            }
+                          },
+                          icon: const Icon(
+                            Icons.logout_rounded,
+                            size: 18,
                           ),
                         ),
                       ],

@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import '../../shared/auth_service.dart';
 import '../models/worker_job.dart';
 import '../widgets/worker_header.dart';
 import '../widgets/job_request_card.dart';
+
 
 /// Main Dashboard and Operations Screen for Workers
 class WorkerHomeScreen extends StatefulWidget {
@@ -225,7 +227,35 @@ class _WorkerHomeScreenState extends State<WorkerHomeScreen> with SingleTickerPr
                 todayEarnings: _formattedTodayEarnings,
                 completedJobsCount: _completedJobsCount,
                 pendingRequestsCount: _pendingCount,
+                onLogout: () async {
+                  final shouldLogout = await showDialog<bool>(
+                    context: context,
+                    builder: (ctx) => AlertDialog(
+                      title: const Text('Log Out'),
+                      content: const Text('Are you sure you want to log out of the Worker Portal?'),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.of(ctx).pop(false),
+                          child: const Text('Cancel'),
+                        ),
+                        FilledButton(
+                          style: FilledButton.styleFrom(backgroundColor: Colors.red),
+                          onPressed: () => Navigator.of(ctx).pop(true),
+                          child: const Text('Log Out'),
+                        ),
+                      ],
+                    ),
+                  );
+
+                  if (shouldLogout == true && context.mounted) {
+                    await AuthService.logout();
+                    if (context.mounted) {
+                      Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
+                    }
+                  }
+                },
               ),
+
             ),
             SliverPersistentHeader(
               pinned: true,

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'shared/auth_gate.dart';
 import 'customer/screens/customer_home_screen.dart';
 import 'worker/screens/worker_home_screen.dart';
 
@@ -22,10 +23,11 @@ class SahayakApp extends StatelessWidget {
         useMaterial3: true,
         fontFamily: 'Roboto',
       ),
-      home: const RoleSelectionScreen(),
+      home: const AuthGate(),
     );
   }
 }
+
 
 /// Initial Role Selector Screen (Customer vs Worker portal)
 class RoleSelectionScreen extends StatelessWidget {
