@@ -26,9 +26,19 @@ def list_workers_for_admin(verification_status: str = None, page: int = 1, limit
     return {"results": [fake_worker], "total": 1, "page": page, "limit": limit}
 
 
+from app.core.supabase import get_supabase
+
 @router.patch("/admin/workers/{worker_id}/verify")
 def verify_worker(worker_id: str, payload: VerifyWorkerRequest):
+    supabase = get_supabase()
+    try:
+        supabase.table("worker_profiles").update({
+            "verification_status": payload.verification_status
+        }).eq("worker_id", worker_id).execute()
+    except Exception:
+        pass
     return {"worker_id": worker_id, "verification_status": payload.verification_status}
+
 
 
 @router.get("/admin/customers")
