@@ -429,29 +429,6 @@ class ServiceDetailScreen extends StatelessWidget {
             Expanded(
               flex: 2,
               child: FilledButton(
-                onPressed: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: const Row(
-                        children: [
-                          Icon(Icons.info_outline_rounded, color: Colors.white),
-                          SizedBox(width: 10),
-                          Expanded(
-                            child: Text(
-                              'Booking feature coming next!',
-                              style: TextStyle(fontWeight: FontWeight.w600),
-                            ),
-                          ),
-                        ],
-                      ),
-                      backgroundColor: theme.colorScheme.primary,
-                      behavior: SnackBarBehavior.floating,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                    ),
-                  );
-                },
                 onPressed: () => _openBookingSheet(context),
                 style: FilledButton.styleFrom(
                   backgroundColor: const Color(0xFF1E7E34),
