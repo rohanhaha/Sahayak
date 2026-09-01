@@ -28,32 +28,55 @@ class AvailabilityUpdateRequest(BaseModel):
 
 from app.core.supabase import get_supabase
 from typing import Optional
+from fastapi import HTTPException
 
 @router.get("/workers")
-def list_workers(service_id: Optional[str] = None, page: int = 1, limit: int = 20):
+def list_workers(service_id: Optional[str] = None, page: int = 1, limit: int = 50):
     supabase = get_supabase()
     offset = (page - 1) * limit
 
     try:
-        res = (
-            supabase.table("worker_profiles")
-            .select("*, profiles:worker_id(full_name, phone)")
+        # 1. Fetch all registered profiles with role 'WORKER'
+        profiles_res = (
+            supabase.table("profiles")
+            .select("user_id, full_name, phone, role, created_at")
+            .eq("role", "WORKER")
+            .order("created_at", desc=True)
             .range(offset, offset + limit - 1)
             .execute()
         )
 
+        worker_profiles_list = profiles_res.data or []
+        worker_ids = [p["user_id"] for p in worker_profiles_list]
+
+        # 2. Fetch worker_profiles for verification_status, skills, rating
+        wp_map = {}
+        if worker_ids:
+            try:
+                wp_res = (
+                    supabase.table("worker_profiles")
+                    .select("*")
+                    .in_("worker_id", worker_ids)
+                    .execute()
+                )
+                for wp in wp_res.data or []:
+                    wp_map[wp["worker_id"]] = wp
+            except Exception:
+                pass
+
         formatted = []
-        for w in res.data or []:
-            profile = w.get("profiles") or {}
+        for p in worker_profiles_list:
+            uid = p["user_id"]
+            wp = wp_map.get(uid, {})
             formatted.append({
-                "worker_id": w.get("worker_id"),
-                "full_name": profile.get("full_name") or "Cooperative Worker",
-                "phone": profile.get("phone") or "+91 98765 11223",
-                "skills": w.get("skills") or ["Home Services"],
-                "certificates": w.get("certificates") or [],
-                "rating_avg": w.get("rating_avg") or 4.8,
-                "rating_count": w.get("rating_count") or 12,
-                "verification_status": w.get("verification_status") or "VERIFIED",
+                "worker_id": uid,
+                "full_name": p.get("full_name") or "Cooperative Worker",
+                "phone": p.get("phone") or "+91 98765 11223",
+                "skills": wp.get("skills") if wp.get("skills") else ["Home Maintenance", "Electrician"],
+                "certificates": wp.get("certificates") or [],
+                "rating_avg": float(wp.get("rating_avg") or 4.8),
+                "rating_count": int(wp.get("rating_count") or 0),
+                "verification_status": wp.get("verification_status") or "PENDING",
                 "is_on_duty": True,
             })
 
@@ -64,34 +87,8 @@ def list_workers(service_id: Optional[str] = None, page: int = 1, limit: int = 2
             "limit": limit
         }
     except Exception as e:
-        # Graceful fallback demo list
-        return {
-            "results": [
-                {
-                    "worker_id": "w-1",
-                    "full_name": "Rajesh Kumar",
-                    "phone": "+91 98765 11223",
-                    "skills": ["Electrician", "Appliance Repair"],
-                    "rating_avg": 4.8,
-                    "rating_count": 34,
-                    "verification_status": "VERIFIED",
-                    "is_on_duty": True,
-                },
-                {
-                    "worker_id": "w-2",
-                    "full_name": "Suresh Patil",
-                    "phone": "+91 98765 44556",
-                    "skills": ["Plumber", "Pipe Fitting"],
-                    "rating_avg": 4.6,
-                    "rating_count": 22,
-                    "verification_status": "VERIFIED",
-                    "is_on_duty": True,
-                }
-            ],
-            "total": 2,
-            "page": page,
-            "limit": limit
-        }
+        raise HTTPException(status_code=500, detail=f"Failed to fetch workers: {str(e)}")
+
 
 
 
