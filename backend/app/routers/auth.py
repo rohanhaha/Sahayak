@@ -47,70 +47,41 @@ def register(payload: RegisterRequest):
     supabase = get_supabase()
     
     try:
-        # 1. Create user in Supabase Auth (admin API auto-confirms email)
-        auth_response = supabase.auth.admin.create_user({
-            "email": payload.email,
-            "password": payload.password,
-            "email_confirm": True,
-            "user_metadata": {
-                "full_name": payload.full_name,
-                "role": payload.role
-            }
-        })
-        
-        user = auth_response.user
-        if not user:
-            raise HTTPException(status_code=400, detail="Failed to create user account.")
+        user_id = None
+        token = None
 
-        user_id = str(user.id)
-
-        # 2. Insert into public.profiles
-        supabase.table("profiles").insert({
-            "user_id": user_id,
-            "full_name": payload.full_name,
-            "phone": payload.phone,
-            "role": payload.role
-        }).execute()
+        # 1. Attempt admin user creation (auto-confirms email)
+        try:
+            auth_response = supabase.auth.admin.create_user({
+                "email": payload.email,
+                "password": payload.password,
+                "email_confirm": True,
+                "user_metadata": {
+                    "full_name": payload.full_name,
+                    "role": payload.role
+                }
 
         # 3. If WORKER, initialize public.worker_profiles
         if payload.role == "WORKER":
-            supabase.table("worker_profiles").insert({
-                "worker_id": user_id,
-                "skills": [],
-                "certificates": [],
-                "rating_avg": 0.0,
-                "rating_count": 0,
-                "verification_status": "PENDING"
-            }).execute()
-
-        # 4. Sign in to issue a valid JWT access token
-        session_response = supabase.auth.sign_in_with_password({
-            "email": payload.email,
-            "password": payload.password
-        })
-        
-        token = (
-            session_response.session.access_token
-            if session_response.session
-            else "session_created"
-        )
+            try:
+                supabase.table("worker_profiles").insert({
+                    "worker_id": user_id,
+                    "skills": [],
+                    "certificates": [],
+                    "rating_avg": 0.0,
+                    "rating_count": 0,
+                    "verification_status": "PENDING"
+                })
+                if session_response and session_response.session:
+                    token = session_response.session.access_token
+            except Exception:
+                token = "session_active"
 
         return {
             "user_id": user_id,
             "email": payload.email,
             "full_name": payload.full_name,
             "role": payload.role,
-            "access_token": token
-        }
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        err_str = str(e)
-        if "already registered" in err_str.lower() or "unique" in err_str.lower():
-            raise HTTPException(status_code=400, detail="User with this email already exists.")
-        raise HTTPException(status_code=500, detail=f"Registration failed: {err_str}")
-
 
 @router.post("/auth/login", response_model=AuthResponse)
 def login(payload: LoginRequest):
@@ -123,17 +94,6 @@ def login(payload: LoginRequest):
             "password": payload.password
         })
 
-        if not auth_response.user or not auth_response.session:
-            raise HTTPException(status_code=401, detail="Invalid email or password.")
-
-        user_id = str(auth_response.user.id)
-        token = auth_response.session.access_token
-
-        # 2. Fetch User Profile from public.profiles
-        profile_res = (
-            supabase.table("profiles")
-            .select("full_name, role")
-            .eq("user_id", user_id)
             .execute()
         )
 
@@ -141,7 +101,6 @@ def login(payload: LoginRequest):
             full_name = auth_response.user.user_metadata.get("full_name", "User")
             role = auth_response.user.user_metadata.get("role", "CUSTOMER")
         else:
-            profile = profile_res.data[0]
             full_name = profile.get("full_name", "User")
             role = profile.get("role", "CUSTOMER")
 
