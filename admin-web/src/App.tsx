@@ -4,7 +4,8 @@ import { fetchBookings, fetchWorkers } from './services/api';
 import { KPICards } from './components/KPICards';
 import { BookingsTable } from './components/BookingsTable';
 import { WorkerVerification } from './components/WorkerVerification';
-import { ShieldCheck, Activity, Users, Layers, ExternalLink, RefreshCw } from 'lucide-react';
+import { ShieldCheck, Activity, Users } from 'lucide-react';
+
 
 export const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'DISPATCH' | 'WORKERS'>('DISPATCH');

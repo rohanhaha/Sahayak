@@ -1,6 +1,8 @@
 import React from 'react';
 import { PlatformKPIs } from '../types';
-import { CalendarCheck, Users, CheckCircle2, IndianRupee, Clock } from 'lucide-react';
+import { CalendarCheck, CheckCircle2, IndianRupee, Clock } from 'lucide-react';
+
+
 
 interface KPICardsProps {
   kpis: PlatformKPIs;

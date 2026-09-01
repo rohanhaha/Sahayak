@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Booking, BookingStatus } from '../types';
-import { Search, Filter, Clock, CheckCircle2, AlertCircle, RefreshCw } from 'lucide-react';
+import { Search, Clock, CheckCircle2, AlertCircle, RefreshCw } from 'lucide-react';
+
 
 interface BookingsTableProps {
   bookings: Booking[];
