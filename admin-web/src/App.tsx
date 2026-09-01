@@ -6,13 +6,13 @@ import { BookingsTable } from './components/BookingsTable';
 import { WorkerVerification } from './components/WorkerVerification';
 import { ShieldCheck, Activity, Users } from 'lucide-react';
 
-
 export const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'DISPATCH' | 'WORKERS'>('DISPATCH');
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [workers, setWorkers] = useState<WorkerItem[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
+  const [tableFilter, setTableFilter] = useState<string>('ALL');
 
   const loadData = useCallback(async () => {
     setIsLoading(true);
@@ -35,6 +35,11 @@ export const App: React.FC = () => {
     const interval = setInterval(loadData, 8000);
     return () => clearInterval(interval);
   }, [loadData]);
+
+  const handleKpiCardClick = (status: string) => {
+    setActiveTab('DISPATCH');
+    setTableFilter(status);
+  };
 
   // Compute live KPIs
   const totalBookings = bookings.length;
@@ -106,15 +111,15 @@ export const App: React.FC = () => {
 
       {/* Main Content Area */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex-1 w-full">
-        {/* KPI Banner */}
-        <KPICards kpis={kpis} />
+        {/* Clickable KPI Banner */}
+        <KPICards kpis={kpis} onFilterSelect={handleKpiCardClick} />
 
         {/* View Switcher Tabs */}
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2 border-b border-slate-200 w-full">
             <button
               onClick={() => setActiveTab('DISPATCH')}
-              className={`flex items-center gap-2 py-3 px-4 text-xs font-bold border-b-2 transition-colors ${
+              className={`flex items-center gap-2 py-3 px-4 text-xs font-bold border-b-2 transition-colors cursor-pointer ${
                 activeTab === 'DISPATCH'
                   ? 'border-coop-primary text-coop-primary'
                   : 'border-transparent text-slate-500 hover:text-slate-800'
@@ -128,7 +133,7 @@ export const App: React.FC = () => {
 
             <button
               onClick={() => setActiveTab('WORKERS')}
-              className={`flex items-center gap-2 py-3 px-4 text-xs font-bold border-b-2 transition-colors ${
+              className={`flex items-center gap-2 py-3 px-4 text-xs font-bold border-b-2 transition-colors cursor-pointer ${
                 activeTab === 'WORKERS'
                   ? 'border-coop-primary text-coop-primary'
                   : 'border-transparent text-slate-500 hover:text-slate-800'
@@ -148,6 +153,8 @@ export const App: React.FC = () => {
             bookings={bookings}
             isLoading={isLoading}
             onRefresh={loadData}
+            filterStatus={tableFilter}
+            onFilterChange={setTableFilter}
           />
         ) : (
           <WorkerVerification
