@@ -1,0 +1,37 @@
+.
+├── admin-web
+│   ├── readme.md
+│   └── src
+│       └── readme.md
+├── backend
+│   ├── app
+│   │   ├── __init__.py
+│   │   ├── main.py
+│   │   └── routers
+│   │       ├── admin.py
+│   │       ├── auth.py
+│   │       ├── bookings.py
+│   │       ├── __init__.py
+│   │       ├── notifications.py
+│   │       ├── payments.py
+│   │       ├── reviews.py
+│   │       ├── services.py
+│   │       ├── welfare.py
+│   │       └── workers.py
+│   └── requirements.txt
+├── docs
+│   ├── api-contract.md
+│   ├── conventions.md
+│   └── test-cases.md
+├── mobile
+│   └── lib
+│       ├── customer
+│       │   └── readme.md
+│       ├── main.dart
+│       ├── shared
+│       │   └── readme.md
+│       └── worker
+│           └── readme.md
+└── tree.txt
+
+12 directories, 23 files

@@ -1,31 +1,37 @@
-from fastapi import APIRouter
-import uuid
+# backend/app/routers/services.py
+from fastapi import APIRouter, HTTPException, Query
+from app.core.supabase import get_supabase
 
 router = APIRouter()
 
-
 @router.get("/services")
-def list_services(category: str = None, page: int = 1, limit: int = 20):
-    # STUB data — replace with a real Supabase query later.
-    fake_service = {
-        "service_id": str(uuid.uuid4()),
-        "name": "Home Cleaning",
-        "category": category or "cleaning",
-        "description": "Standard home cleaning service",
-        "base_price_amount": 50000,  # paise -> ₹500
-        "image_url": "https://example.com/image.jpg",
+def list_services(
+    category: str = None,
+    page: int = Query(1, ge=1),
+    limit: int = Query(20, ge=1, le=100)
+):
+    supabase = get_supabase()
+    offset = (page - 1) * limit
+    
+    query = supabase.table("services").select("*", count="exact")
+    if category:
+        query = query.eq("category", category)
+    
+    response = query.range(offset, offset + limit - 1).execute()
+    
+    return {
+        "results": response.data,
+        "total": response.count or len(response.data),
+        "page": page,
+        "limit": limit
     }
-    return {"results": [fake_service], "total": 1, "page": page, "limit": limit}
-
 
 @router.get("/services/{service_id}")
 def get_service(service_id: str):
-    return {
-        "service_id": service_id,
-        "name": "Home Cleaning",
-        "category": "cleaning",
-        "description": "Standard home cleaning service",
-        "base_price_amount": 50000,
-        "image_url": "https://example.com/image.jpg",
-        "available_workers_count": 4,
-    }
+    supabase = get_supabase()
+    response = supabase.table("services").select("*").eq("service_id", service_id).execute()
+    
+    if not response.data:
+        raise HTTPException(status_code=404, detail="Service not found")
+        
+    return response.data[0]
