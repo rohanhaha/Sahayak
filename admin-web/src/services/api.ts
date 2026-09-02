@@ -21,8 +21,8 @@ export async function fetchBookings(status?: BookingStatus): Promise<Booking[]> 
     const data = await response.json();
     return data.results || [];
   } catch (error) {
-    console.warn('API fetchBookings failed, returning cached/fallback fixtures:', error);
-    return getFallbackBookings();
+    console.error('API fetchBookings failed:', error);
+    return [];
   }
 }
 
@@ -39,10 +39,11 @@ export async function fetchWorkers(): Promise<WorkerItem[]> {
     const data = await response.json();
     return data.results || [];
   } catch (error) {
-    console.warn('API fetchWorkers failed, returning fallback list:', error);
-    return getFallbackWorkers();
+    console.error('API fetchWorkers failed:', error);
+    return [];
   }
 }
+
 
 export async function updateBookingStatus(
   bookingId: string,

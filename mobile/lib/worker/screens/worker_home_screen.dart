@@ -20,6 +20,7 @@ class _WorkerHomeScreenState extends State<WorkerHomeScreen> with SingleTickerPr
   late TabController _tabController;
 
   // Worker Profile & Operations State
+  String _workerName = 'Worker';
   bool _isOnDuty = true;
   int _todayEarnings = 120000; // in paise = ₹1,200
   int _completedJobsCount = 4;
@@ -36,7 +37,17 @@ class _WorkerHomeScreenState extends State<WorkerHomeScreen> with SingleTickerPr
     _tabController = TabController(length: 2, vsync: this);
     _jobs = List.from(mockWorkerJobs);
     _availabilitySlots = List.from(mockWeeklyAvailability);
+    _loadWorkerProfile();
     _fetchLiveBookings();
+  }
+
+  Future<void> _loadWorkerProfile() async {
+    final name = await AuthService.getUserName();
+    if (name != null && name.isNotEmpty && mounted) {
+      setState(() {
+        _workerName = name;
+      });
+    }
   }
 
   @override
@@ -44,6 +55,7 @@ class _WorkerHomeScreenState extends State<WorkerHomeScreen> with SingleTickerPr
     _tabController.dispose();
     super.dispose();
   }
+
 
   Future<void> _fetchLiveBookings() async {
     setState(() => _isLoadingJobs = true);
@@ -289,7 +301,7 @@ class _WorkerHomeScreenState extends State<WorkerHomeScreen> with SingleTickerPr
           return [
             SliverToBoxAdapter(
               child: WorkerHeader(
-                workerName: 'Rajesh Kumar',
+                workerName: _workerName,
                 profession: 'Electrician',
                 rating: 4.8,
                 totalReviews: 124,
