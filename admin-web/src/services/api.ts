@@ -70,7 +70,10 @@ export async function updateWorkerVerification(
     const response = await fetch(`${API_BASE_URL}/admin/workers/${workerId}/verify`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ status }),
+      body: JSON.stringify({
+        verification_status: status,
+        status: status,
+      }),
     });
     return response.ok;
   } catch (error) {
@@ -78,6 +81,7 @@ export async function updateWorkerVerification(
     return false;
   }
 }
+
 
 // Fallback fixtures for seamless local review
 function getFallbackBookings(): Booking[] {

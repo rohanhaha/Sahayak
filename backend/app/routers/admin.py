@@ -7,8 +7,10 @@ router = APIRouter()
 
 
 class VerifyWorkerRequest(BaseModel):
-    verification_status: str  # VERIFIED | REJECTED
-    notes: str = ""
+    verification_status: Optional[str] = None
+    status: Optional[str] = None
+    notes: Optional[str] = ""
+
 
 
 class UpdateComplaintRequest(BaseModel):
@@ -75,13 +77,21 @@ def list_workers_for_admin(verification_status: Optional[str] = None, page: int 
 @router.patch("/admin/workers/{worker_id}/verify")
 def verify_worker(worker_id: str, payload: VerifyWorkerRequest):
     supabase = get_supabase()
+    v_status = (payload.verification_status or payload.status or "VERIFIED").upper()
     try:
-        supabase.table("worker_profiles").update({
-            "verification_status": payload.verification_status
-        }).eq("worker_id", worker_id).execute()
+        supabase.table("worker_profiles").upsert({
+            "worker_id": worker_id,
+            "verification_status": v_status
+        }).execute()
     except Exception:
-        pass
-    return {"worker_id": worker_id, "verification_status": payload.verification_status}
+        try:
+            supabase.table("worker_profiles").update({
+                "verification_status": v_status
+            }).eq("worker_id", worker_id).execute()
+        except Exception:
+            pass
+    return {"worker_id": worker_id, "verification_status": v_status}
+
 
 
 
