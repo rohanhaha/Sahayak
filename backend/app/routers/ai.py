@@ -109,17 +109,13 @@ def diagnose_issue(payload: DiagnoseRequest):
                 "parts": [{"text": user_msg}]
             })
 
-            # Use official stable model: gemini-1.5-flash (or gemini-2.0-flash)
-            is_bearer = api_key.startswith("AQ.") or api_key.startswith("ya29.")
-            if is_bearer:
-                url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent"
-                headers = {
-                    "Content-Type": "application/json",
-                    "Authorization": f"Bearer {api_key}"
-                }
-            else:
-                url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={api_key}"
-                headers = {"Content-Type": "application/json"}
+            # Use verified official endpoint & header from Google AI Studio
+            url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent"
+            headers = {
+                "Content-Type": "application/json",
+                "X-goog-api-key": api_key
+            }
+
 
             body = {
                 "system_instruction": {

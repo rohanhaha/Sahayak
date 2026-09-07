@@ -1,7 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
-import '../../shared/api_client.dart';
 import '../models/service_item.dart';
 import '../screens/service_detail_screen.dart';
 
@@ -50,6 +49,65 @@ class _AiAssistantSheetState extends State<AiAssistantSheet> {
   final List<ChatMessage> _messages = [];
   bool _isLoading = false;
 
+  static const String _geminiApiKey = 'AQ.Ab8RN6K65CXmhqF1DXLpCEm1u7QBxj4BEMof2TQ2WqxgaQZ8yQ';
+  static const String _geminiUrl = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent';
+
+  static const Map<String, Map<String, String>> _servicesCatalog = {
+    'plumber': {
+      'service_id': 'c2eebc99-9c0b-4ef8-bb6d-6bb9bd380a33',
+      'service_name': 'Plumbing Inspection & Repair',
+      'category': 'Plumber',
+      'price_formatted': '₹399'
+    },
+    'electrician': {
+      'service_id': 'd3eebc99-9c0b-4ef8-bb6d-6bb9bd380a44',
+      'service_name': 'Electrician Home Service',
+      'category': 'Electrician',
+      'price_formatted': '₹299'
+    },
+    'appliance': {
+      'service_id': 'b1eebc99-9c0b-4ef8-bb6d-6bb9bd380a22',
+      'service_name': 'AC Service & Repair',
+      'category': 'Appliance',
+      'price_formatted': '₹599'
+    },
+    'cleaning': {
+      'service_id': 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11',
+      'service_name': 'Home Deep Cleaning',
+      'category': 'Cleaning',
+      'price_formatted': '₹1,499'
+    },
+    'pest_control': {
+      'service_id': 'e4eebc99-9c0b-4ef8-bb6d-6bb9bd380a55',
+      'service_name': 'Pest Control Treatment',
+      'category': 'Pest Control',
+      'price_formatted': '₹899'
+    }
+  };
+
+  static const String _systemPrompt = """You are Sahayak AI (सहायक AI), the intelligent, helpful, and empathetic AI assistant for the Sahayak Worker Cooperative Platform.
+Sahayak connects urban household customers with certified labour cooperative workers without high corporate middleman commissions.
+
+YOUR INSTRUCTIONS:
+1. Converse naturally, intelligently, and warmly. Answer any question the user asks (you can chat about anything, explain how cooperatives empower workers, how fair pricing works, general home maintenance tips, etc.).
+2. You can understand and respond in English, Hindi, or Hinglish.
+3. If the user describes ANY repair, appliance issue, leak, electrical problem, or cleaning requirement, empathize with them, give useful diagnostic advice, and recommend one of our exact service categories:
+   - "plumber" (pipe leaks, tap/faucet issues, drainage blocks, toilet/flush repair)
+   - "electrician" (short circuit, sparking switchboard, wiring, fan repair, MCB trip)
+   - "appliance" (AC cooling problems, gas refill, foam jet servicing)
+   - "cleaning" (deep home cleaning, kitchen scrubbing, bathroom sanitization)
+   - "pest_control" (cockroaches, termites, bed bugs, ants)
+   - "none" (if the user is chatting, greeting, asking general questions, or issues outside our current catalog)
+
+RESPONSE FORMAT:
+You MUST format your reply strictly as valid JSON matching this schema:
+{
+  "reply": "Your conversational answer to the user",
+  "category": "plumber" | "electrician" | "appliance" | "cleaning" | "pest_control" | "none"
+}
+Do NOT include markdown backticks or any other text. Output raw JSON only.
+""";
+
   final List<String> _quickPrompts = [
     'My kitchen pipe is leaking water',
     'AC is not blowing cold air',
@@ -62,7 +120,7 @@ class _AiAssistantSheetState extends State<AiAssistantSheet> {
     super.initState();
     _messages.add(
       ChatMessage(
-        text: 'Namaste! I am Sahayak AI. Tell me what problem you are facing at home, and I will diagnose it and help you book a verified cooperative technician.',
+        text: 'Namaste! I am Sahayak AI. Tell me what problem you are facing at home, or ask me anything about our cooperative services.',
         isUser: false,
       ),
     );
@@ -87,93 +145,107 @@ class _AiAssistantSheetState extends State<AiAssistantSheet> {
     _scrollToBottom();
 
     try {
-      final List<Map<String, String>> historyList = [];
-      for (int i = 1; i < _messages.length - 1; i++) {
-        historyList.add({
-          'role': _messages[i].isUser ? 'user' : 'assistant',
-          'content': _messages[i].text,
+      // Build full conversation history for Gemini
+      final List<Map<String, dynamic>> contents = [];
+      for (int i = 1; i < _messages.length; i++) {
+        final m = _messages[i];
+        contents.add({
+          'role': m.isUser ? 'user' : 'model',
+          'parts': [{'text': m.text}],
         });
       }
 
-      final url = Uri.parse('${ApiConfig.baseUrl}/ai/diagnose');
       final payload = jsonEncode({
-        'message': query,
-        'history': historyList,
+        'system_instruction': {
+          'parts': [{'text': _systemPrompt}]
+        },
+        'contents': contents,
+        'generationConfig': {
+          'response_mime_type': 'application/json',
+          'temperature': 0.4,
+        }
       });
 
       final response = await http.post(
-        url,
-        headers: ApiConfig.headers(),
+        Uri.parse(_geminiUrl),
+        headers: {
+          'Content-Type': 'application/json',
+          'X-goog-api-key': _geminiApiKey,
+        },
         body: payload,
       );
 
-      debugPrint('[AI] Calling $url with query: $query');
+      debugPrint('[AI Gemini] HTTP status: ${response.statusCode}');
+
       if (response.statusCode == 200) {
-        final Map<String, dynamic> data = jsonDecode(response.body);
-        debugPrint('[AI] Success: $data');
+        final Map<String, dynamic> geminiData = jsonDecode(response.body);
+        final String rawText = geminiData['candidates'][0]['content']['parts'][0]['text'];
+        final Map<String, dynamic> parsed = jsonDecode(rawText);
+
+        final String reply = parsed['reply'] ?? 'I am here to help you with cooperative services.';
+        final String category = (parsed['category'] as String? ?? 'none').toLowerCase();
+        final srv = _servicesCatalog[category];
+
         setState(() {
           _messages.add(
             ChatMessage(
-              text: data['reply'] ?? 'Here is our recommended service.',
+              text: reply,
               isUser: false,
-              serviceId: data['service_id'],
-              serviceName: data['service_name'],
-              category: data['category'],
-              priceFormatted: data['price_formatted'],
+              serviceId: srv?['service_id'],
+              serviceName: srv?['service_name'],
+              category: srv?['category'],
+              priceFormatted: srv?['price_formatted'],
             ),
           );
           _isLoading = false;
         });
       } else {
-        debugPrint('[AI] Server error: ${response.statusCode} - ${response.body}');
-        _handleFallbackDiagnosis(query);
+        debugPrint('[AI Gemini] Error: ${response.statusCode} - ${response.body}');
+        _handleFallback(query);
       }
     } catch (e) {
-      debugPrint('[AI] Network exception: $e');
-      _handleFallbackDiagnosis(query);
+      debugPrint('[AI Gemini] Exception: $e');
+      _handleFallback(query);
     }
     _scrollToBottom();
   }
 
-
-  void _handleFallbackDiagnosis(String query) {
+  void _handleFallback(String query) {
     final lower = query.toLowerCase();
-    String reply = "I can connect you with a certified cooperative technician.";
+    String reply = "I am here to help with your home maintenance. How can I assist you?";
     String? srvId;
     String? srvName;
     String? price;
     String? cat;
 
     if (lower.contains('pipe') || lower.contains('leak') || lower.contains('tap') || lower.contains('drain') || lower.contains('water') || lower.contains('sink')) {
-      reply = "A leaking pipe or drain block needs immediate plumbing attention. Our cooperative plumbers are available.";
-      srvId = "c2eebc99-9c0b-4ef8-bb6d-6bb9bd380a33";
-      srvName = "Plumbing Inspection & Repair";
-      price = "₹399";
-      cat = "Plumber";
-    } else if (lower.contains('spark') || lower.contains('switch') || lower.contains('electric') || lower.contains('wire') || lower.contains('mcb') || lower.contains('fan')) {
+      final s = _servicesCatalog['plumber']!;
+      reply = "A leaking pipe needs immediate plumbing attention to prevent damage. Our cooperative plumbers can inspect and repair this right away.";
+      srvId = s['service_id'];
+      srvName = s['service_name'];
+      price = s['price_formatted'];
+      cat = s['category'];
+    } else if (lower.contains('spark') || lower.contains('switch') || lower.contains('electric') || lower.contains('wire') || lower.contains('mcb')) {
+      final s = _servicesCatalog['electrician']!;
       reply = "Electrical sparking is hazardous. A certified cooperative electrician can inspect and repair your wiring safely.";
-      srvId = "d3eebc99-9c0b-4ef8-bb6d-6bb9bd380a44";
-      srvName = "Electrician Home Service";
-      price = "₹299";
-      cat = "Electrician";
+      srvId = s['service_id'];
+      srvName = s['service_name'];
+      price = s['price_formatted'];
+      cat = s['category'];
     } else if (lower.contains('ac') || lower.contains('cool') || lower.contains('gas')) {
+      final s = _servicesCatalog['appliance']!;
       reply = "Your AC likely needs foam jet cleaning and gas pressure check. Here is our certified AC service.";
-      srvId = "b1eebc99-9c0b-4ef8-bb6d-6bb9bd380a22";
-      srvName = "AC Service & Repair";
-      price = "₹599";
-      cat = "Appliance";
-    } else if (lower.contains('pest') || lower.contains('cockroach') || lower.contains('termite') || lower.contains('ant') || lower.contains('bug')) {
-      reply = "We offer safe, odorless, and government-approved pest control treatments.";
-      srvId = "e4eebc99-9c0b-4ef8-bb6d-6bb9bd380a55";
-      srvName = "Pest Control Treatment";
-      price = "₹899";
-      cat = "Pest Control";
-    } else {
+      srvId = s['service_id'];
+      srvName = s['service_name'];
+      price = s['price_formatted'];
+      cat = s['category'];
+    } else if (lower.contains('clean') || lower.contains('dust')) {
+      final s = _servicesCatalog['cleaning']!;
       reply = "Our cooperative deep cleaning crew provides comprehensive floor scrubbing, kitchen degreasing, and sanitization.";
-      srvId = "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11";
-      srvName = "Home Deep Cleaning";
-      price = "₹1,499";
-      cat = "Cleaning";
+      srvId = s['service_id'];
+      srvName = s['service_name'];
+      price = s['price_formatted'];
+      cat = s['category'];
     }
 
     setState(() {
@@ -268,7 +340,7 @@ class _AiAssistantSheetState extends State<AiAssistantSheet> {
                         ),
                       ),
                       Text(
-                        'Powered by Gemini • Cooperative Diagnostics',
+                        'Powered by Gemini Flash • Cooperative Diagnostics',
                         style: TextStyle(fontSize: 11, color: Color(0xFF64748B)),
                       ),
                     ],
@@ -306,7 +378,7 @@ class _AiAssistantSheetState extends State<AiAssistantSheet> {
                     child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF1E7E34)),
                   ),
                   SizedBox(width: 10),
-                  Text('Sahayak AI is diagnosing with Gemini...', style: TextStyle(fontSize: 12, color: Color(0xFF64748B))),
+                  Text('Sahayak AI is thinking...', style: TextStyle(fontSize: 12, color: Color(0xFF64748B))),
                 ],
               ),
             ),
@@ -346,7 +418,7 @@ class _AiAssistantSheetState extends State<AiAssistantSheet> {
                     controller: _inputController,
                     onSubmitted: _sendMessage,
                     decoration: InputDecoration(
-                      hintText: 'Describe your issue (e.g. leaking tap, AC noise)...',
+                      hintText: 'Ask anything or describe your issue...',
                       hintStyle: const TextStyle(fontSize: 13, color: Color(0xFF94A3B8)),
                       filled: true,
                       fillColor: const Color(0xFFF8FAFC),
