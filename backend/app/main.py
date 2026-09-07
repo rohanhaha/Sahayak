@@ -11,6 +11,7 @@ from app.routers import (
     notifications,
     welfare,
     admin,
+    ai,
 )
 
 app = FastAPI(title="CodeCraft API", version="0.1.0")
@@ -35,6 +36,8 @@ app.include_router(reviews.router, prefix="/api/v1", tags=["reviews"])
 app.include_router(notifications.router, prefix="/api/v1", tags=["notifications"])
 app.include_router(welfare.router, prefix="/api/v1", tags=["welfare"])
 app.include_router(admin.router, prefix="/api/v1", tags=["admin"])
+app.include_router(ai.router, prefix="/api/v1", tags=["ai"])
+
 
 
 @app.get("/")

@@ -6,7 +6,9 @@ import '../../shared/api_client.dart';
 import '../../shared/auth_service.dart';
 import '../models/service_item.dart';
 import '../widgets/service_card.dart';
+import '../widgets/ai_assistant_sheet.dart';
 import 'service_detail_screen.dart';
+
 
 /// Customer home and service discovery screen.
 class CustomerHomeScreen extends StatefulWidget {
@@ -443,10 +445,26 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
 
 
             // Bottom Spacing
-            const SliverToBoxAdapter(child: SizedBox(height: 24)),
+            const SliverToBoxAdapter(child: SizedBox(height: 80)),
           ],
+        ),
+      ),
+      floatingActionButton: FloatingActionButton.extended(
+        backgroundColor: const Color(0xFF1E7E34),
+        elevation: 4,
+        onPressed: () => AiAssistantSheet.show(context, _services),
+        icon: const Icon(Icons.auto_awesome_rounded, color: Colors.white, size: 18),
+        label: const Text(
+          '✨ Sahayak AI',
+          style: TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+            fontSize: 13,
+            letterSpacing: 0.2,
+          ),
         ),
       ),
     );
   }
+
 }
