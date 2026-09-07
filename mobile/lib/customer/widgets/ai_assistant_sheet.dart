@@ -345,12 +345,13 @@ class _AiAssistantSheetState extends State<AiAssistantSheet> {
                 ),
                 const SizedBox(width: 8),
                 IconButton.filled(
-                  style: IconButton.filled(style: ButtonStyle(
-                    backgroundColor: WidgetStateProperty.all(const Color(0xFF1E7E34)),
-                  )),
+                  style: IconButton.styleFrom(
+                    backgroundColor: const Color(0xFF1E7E34),
+                  ),
                   onPressed: () => _sendMessage(_inputController.text),
                   icon: const Icon(Icons.send_rounded, size: 18, color: Colors.white),
                 ),
+
               ],
             ),
           ),
