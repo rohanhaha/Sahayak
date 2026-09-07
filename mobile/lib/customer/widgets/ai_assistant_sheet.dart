@@ -91,10 +91,9 @@ class _AiAssistantSheetState extends State<AiAssistantSheet> {
       final response = await http.post(
         Uri.parse('${ApiConfig.baseUrl}/ai/diagnose'),
         headers: ApiConfig.headers(),
-        body: jsonEncode({'message': query}),
-      );
+        body: jsonEncode({
 
-      if (response.statusCode == 200) {
+
         final data = jsonDecode(response.body);
         setState(() {
           _messages.add(
