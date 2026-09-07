@@ -145,70 +145,61 @@ Do NOT include markdown backticks or any other text. Output raw JSON only.
     _scrollToBottom();
 
     try {
-      // Build full conversation history for Gemini
-      final List<Map<String, dynamic>> contents = [];
+      final List<Map<String, String>> historyList = [];
       for (int i = 1; i < _messages.length; i++) {
-        final m = _messages[i];
-        contents.add({
-          'role': m.isUser ? 'user' : 'model',
-          'parts': [{'text': m.text}],
+        historyList.add({
+          'role': _messages[i].isUser ? 'user' : 'assistant',
+          'content': _messages[i].text,
         });
       }
 
+      final url = Uri.parse('${ApiConfig.baseUrl}/ai/diagnose');
       final payload = jsonEncode({
-        'system_instruction': {
-          'parts': [{'text': _systemPrompt}]
-        },
-        'contents': contents,
-        'generationConfig': {
-          'response_mime_type': 'application/json',
-          'temperature': 0.4,
-        }
+        'message': query,
+        'history': historyList,
       });
 
+      debugPrint('[AI] Sending to backend: $url');
       final response = await http.post(
-        Uri.parse(_geminiUrl),
-        headers: {
-          'Content-Type': 'application/json',
-          'X-goog-api-key': _geminiApiKey,
-        },
+        url,
+        headers: ApiConfig.headers(),
         body: payload,
       );
 
-      debugPrint('[AI Gemini] HTTP status: ${response.statusCode}');
+      debugPrint('[AI] Backend response status: ${response.statusCode}');
 
       if (response.statusCode == 200) {
-        final Map<String, dynamic> geminiData = jsonDecode(response.body);
-        final String rawText = geminiData['candidates'][0]['content']['parts'][0]['text'];
-        final Map<String, dynamic> parsed = jsonDecode(rawText);
-
-        final String reply = parsed['reply'] ?? 'I am here to help you with cooperative services.';
-        final String category = (parsed['category'] as String? ?? 'none').toLowerCase();
-        final srv = _servicesCatalog[category];
+        final Map<String, dynamic> data = jsonDecode(response.body);
+        final String reply = data['reply'] ?? 'I am here to help you with cooperative services.';
+        final String? serviceId = data['service_id'];
+        final String? serviceName = data['service_name'];
+        final String? category = data['category'];
+        final String? priceFormatted = data['price_formatted'];
 
         setState(() {
           _messages.add(
             ChatMessage(
               text: reply,
               isUser: false,
-              serviceId: srv?['service_id'],
-              serviceName: srv?['service_name'],
-              category: srv?['category'],
-              priceFormatted: srv?['price_formatted'],
+              serviceId: serviceId,
+              serviceName: serviceName,
+              category: category,
+              priceFormatted: priceFormatted,
             ),
           );
           _isLoading = false;
         });
       } else {
-        debugPrint('[AI Gemini] Error: ${response.statusCode} - ${response.body}');
+        debugPrint('[AI] Backend returned error: ${response.statusCode} - ${response.body}');
         _handleFallback(query);
       }
     } catch (e) {
-      debugPrint('[AI Gemini] Exception: $e');
+      debugPrint('[AI] Exception calling backend: $e');
       _handleFallback(query);
     }
     _scrollToBottom();
   }
+
 
   void _handleFallback(String query) {
     final lower = query.toLowerCase();

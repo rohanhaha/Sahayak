@@ -87,14 +87,17 @@ Do not wrap in backticks or markdown, output pure JSON only.
 
 @router.post("/ai/diagnose", response_model=DiagnoseResponse)
 def diagnose_issue(payload: DiagnoseRequest):
-    user_msg = payload.message.strip()
     api_key = os.getenv("GEMINI_API_KEY", "").strip()
-
     if not api_key:
-        # Check alternative common env names
         api_key = os.getenv("GOOGLE_API_KEY", "").strip()
+    if not api_key:
+        api_key = "AQ.Ab8RN6K65CXmhqF1DXLpCEm1u7QBxj4BEMof2TQ2WqxgaQZ8yQ"
+
+    user_msg = payload.message.strip()
 
     if api_key:
+
+
         try:
             # Build conversation history for Gemini
             contents = []
