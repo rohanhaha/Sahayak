@@ -109,8 +109,18 @@ def diagnose_issue(payload: DiagnoseRequest):
                 "parts": [{"text": user_msg}]
             })
 
-            # Use Gemini 2.5 Flash / 1.5 Flash
-            url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={api_key}"
+            # Use official stable model: gemini-1.5-flash (or gemini-2.0-flash)
+            is_bearer = api_key.startswith("AQ.") or api_key.startswith("ya29.")
+            if is_bearer:
+                url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent"
+                headers = {
+                    "Content-Type": "application/json",
+                    "Authorization": f"Bearer {api_key}"
+                }
+            else:
+                url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={api_key}"
+                headers = {"Content-Type": "application/json"}
+
             body = {
                 "system_instruction": {
                     "parts": [{"text": SYSTEM_INSTRUCTION}]
@@ -118,17 +128,17 @@ def diagnose_issue(payload: DiagnoseRequest):
                 "contents": contents,
                 "generationConfig": {
                     "response_mime_type": "application/json",
-                    "temperature": 0.3
+                    "temperature": 0.4
                 }
             }
 
             req = urllib.request.Request(
                 url,
                 data=json.dumps(body).encode("utf-8"),
-                headers={"Content-Type": "application/json"},
+                headers=headers,
                 method="POST"
             )
-            with urllib.request.urlopen(req, timeout=10) as resp:
+            with urllib.request.urlopen(req, timeout=12) as resp:
                 result_data = json.loads(resp.read().decode("utf-8"))
                 text_out = result_data["candidates"][0]["content"]["parts"][0]["text"]
                 parsed = json.loads(text_out)
@@ -148,16 +158,20 @@ def diagnose_issue(payload: DiagnoseRequest):
                 else:
                     return DiagnoseResponse(reply=reply)
         except Exception as e:
-            # If rate limited or error, try gemini-1.5-flash
+            print(f"[AI] Gemini call error: {e}")
+            # Try backup model gemini-2.0-flash
             try:
-                url_fallback = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={api_key}"
+                if is_bearer:
+                    url_fallback = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent"
+                else:
+                    url_fallback = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={api_key}"
                 req = urllib.request.Request(
                     url_fallback,
                     data=json.dumps(body).encode("utf-8"),
-                    headers={"Content-Type": "application/json"},
+                    headers=headers,
                     method="POST"
                 )
-                with urllib.request.urlopen(req, timeout=10) as resp:
+                with urllib.request.urlopen(req, timeout=12) as resp:
                     result_data = json.loads(resp.read().decode("utf-8"))
                     text_out = result_data["candidates"][0]["content"]["parts"][0]["text"]
                     parsed = json.loads(text_out)
@@ -174,8 +188,9 @@ def diagnose_issue(payload: DiagnoseRequest):
                         )
                     else:
                         return DiagnoseResponse(reply=reply)
-            except Exception:
-                pass
+            except Exception as e2:
+                print(f"[AI] Gemini backup model error: {e2}")
+
 
     # Dynamic intelligent fallback if no key is present or cloud is disconnected
     lower = user_msg.lower()

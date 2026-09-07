@@ -60,10 +60,9 @@ class _AiAssistantSheetState extends State<AiAssistantSheet> {
   @override
   void initState() {
     super.initState();
-    // Initial welcome message
     _messages.add(
       ChatMessage(
-        text: 'Namaste! I am Sahayak AI. Tell me what problem you are facing at home, and I will recommend the right certified cooperative technician for you.',
+        text: 'Namaste! I am Sahayak AI. Tell me what problem you are facing at home, and I will diagnose it and help you book a verified cooperative technician.',
         isUser: false,
       ),
     );
@@ -88,12 +87,30 @@ class _AiAssistantSheetState extends State<AiAssistantSheet> {
     _scrollToBottom();
 
     try {
-      final response = await http.post(
-        Uri.parse('${ApiConfig.baseUrl}/ai/diagnose'),
-        headers: ApiConfig.headers(),
-        body: jsonEncode({
+      final List<Map<String, String>> historyList = [];
+      for (int i = 1; i < _messages.length - 1; i++) {
+        historyList.add({
+          'role': _messages[i].isUser ? 'user' : 'assistant',
+          'content': _messages[i].text,
+        });
+      }
 
+      final url = Uri.parse('${ApiConfig.baseUrl}/ai/diagnose');
+      final payload = jsonEncode({
+        'message': query,
+        'history': historyList,
+      });
+
+      final response = await http.post(
+        url,
+        headers: ApiConfig.headers(),
+        body: payload,
+      );
+
+      debugPrint('[AI] Calling $url with query: $query');
       if (response.statusCode == 200) {
+        final Map<String, dynamic> data = jsonDecode(response.body);
+        debugPrint('[AI] Success: $data');
         setState(() {
           _messages.add(
             ChatMessage(
@@ -108,15 +125,18 @@ class _AiAssistantSheetState extends State<AiAssistantSheet> {
           _isLoading = false;
         });
       } else {
+        debugPrint('[AI] Server error: ${response.statusCode} - ${response.body}');
         _handleFallbackDiagnosis(query);
       }
     } catch (e) {
+      debugPrint('[AI] Network exception: $e');
       _handleFallbackDiagnosis(query);
     }
     _scrollToBottom();
   }
 
 
+  void _handleFallbackDiagnosis(String query) {
     final lower = query.toLowerCase();
     String reply = "I can connect you with a certified cooperative technician.";
     String? srvId;
@@ -124,26 +144,32 @@ class _AiAssistantSheetState extends State<AiAssistantSheet> {
     String? price;
     String? cat;
 
-    if (lower.contains('pipe') || lower.contains('leak') || lower.contains('tap') || lower.contains('drain') || lower.contains('water')) {
-      reply = "A leaking pipe needs immediate plumbing attention to prevent damage. Our cooperative plumbers are available.";
+    if (lower.contains('pipe') || lower.contains('leak') || lower.contains('tap') || lower.contains('drain') || lower.contains('water') || lower.contains('sink')) {
+      reply = "A leaking pipe or drain block needs immediate plumbing attention. Our cooperative plumbers are available.";
       srvId = "c2eebc99-9c0b-4ef8-bb6d-6bb9bd380a33";
       srvName = "Plumbing Inspection & Repair";
       price = "₹399";
       cat = "Plumber";
-    } else if (lower.contains('spark') || lower.contains('switch') || lower.contains('electric') || lower.contains('wire') || lower.contains('mcb')) {
-      reply = "Electrical sparking is hazardous. A certified cooperative electrician can inspect and repair this safely.";
+    } else if (lower.contains('spark') || lower.contains('switch') || lower.contains('electric') || lower.contains('wire') || lower.contains('mcb') || lower.contains('fan')) {
+      reply = "Electrical sparking is hazardous. A certified cooperative electrician can inspect and repair your wiring safely.";
       srvId = "d3eebc99-9c0b-4ef8-bb6d-6bb9bd380a44";
       srvName = "Electrician Home Service";
       price = "₹299";
       cat = "Electrician";
     } else if (lower.contains('ac') || lower.contains('cool') || lower.contains('gas')) {
-      reply = "Your AC likely needs foam jet cleaning and gas pressure check.";
+      reply = "Your AC likely needs foam jet cleaning and gas pressure check. Here is our certified AC service.";
       srvId = "b1eebc99-9c0b-4ef8-bb6d-6bb9bd380a22";
       srvName = "AC Service & Repair";
       price = "₹599";
       cat = "Appliance";
+    } else if (lower.contains('pest') || lower.contains('cockroach') || lower.contains('termite') || lower.contains('ant') || lower.contains('bug')) {
+      reply = "We offer safe, odorless, and government-approved pest control treatments.";
+      srvId = "e4eebc99-9c0b-4ef8-bb6d-6bb9bd380a55";
+      srvName = "Pest Control Treatment";
+      price = "₹899";
+      cat = "Pest Control";
     } else {
-      reply = "Our cooperative deep cleaning team provides comprehensive sanitization and scrubbing.";
+      reply = "Our cooperative deep cleaning crew provides comprehensive floor scrubbing, kitchen degreasing, and sanitization.";
       srvId = "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11";
       srvName = "Home Deep Cleaning";
       price = "₹1,499";
@@ -178,10 +204,9 @@ class _AiAssistantSheetState extends State<AiAssistantSheet> {
   }
 
   void _openBookingForService(String serviceId, String serviceName) {
-    Navigator.of(context).pop(); // Close assistant sheet
+    Navigator.of(context).pop();
 
-    // Find service in catalog or fallback
-    ServiceItem? target = widget.availableServices.firstWhere(
+    ServiceItem target = widget.availableServices.firstWhere(
       (s) => s.serviceId == serviceId || s.name.toLowerCase() == serviceName.toLowerCase(),
       orElse: () => ServiceItem.mockServices.firstWhere(
         (s) => s.serviceId == serviceId || s.name.toLowerCase() == serviceName.toLowerCase(),
@@ -243,7 +268,7 @@ class _AiAssistantSheetState extends State<AiAssistantSheet> {
                         ),
                       ),
                       Text(
-                        'Instant problem diagnosis & cooperative booking',
+                        'Powered by Gemini • Cooperative Diagnostics',
                         style: TextStyle(fontSize: 11, color: Color(0xFF64748B)),
                       ),
                     ],
@@ -281,7 +306,7 @@ class _AiAssistantSheetState extends State<AiAssistantSheet> {
                     child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF1E7E34)),
                   ),
                   SizedBox(width: 10),
-                  Text('Sahayak AI is diagnosing...', style: TextStyle(fontSize: 12, color: Color(0xFF64748B))),
+                  Text('Sahayak AI is diagnosing with Gemini...', style: TextStyle(fontSize: 12, color: Color(0xFF64748B))),
                 ],
               ),
             ),
@@ -342,14 +367,14 @@ class _AiAssistantSheetState extends State<AiAssistantSheet> {
                   ),
                 ),
                 const SizedBox(width: 8),
-                IconButton.filled(
+                IconButton(
                   style: IconButton.styleFrom(
                     backgroundColor: const Color(0xFF1E7E34),
+                    foregroundColor: Colors.white,
                   ),
                   onPressed: () => _sendMessage(_inputController.text),
-                  icon: const Icon(Icons.send_rounded, size: 18, color: Colors.white),
+                  icon: const Icon(Icons.send_rounded, size: 18),
                 ),
-
               ],
             ),
           ),
@@ -386,7 +411,6 @@ class _AiAssistantSheetState extends State<AiAssistantSheet> {
               ),
             ),
 
-            // Embedded Booking Card if service recommendation exists
             if (!msg.isUser && msg.serviceId != null) ...[
               const SizedBox(height: 6),
               InkWell(
