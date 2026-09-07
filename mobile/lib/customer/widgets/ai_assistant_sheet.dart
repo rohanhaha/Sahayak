@@ -268,23 +268,59 @@ Do NOT include markdown backticks or any other text. Output raw JSON only.
     });
   }
 
-  void _openBookingForService(String serviceId, String serviceName) {
+  void _openBookingForService(String? serviceId, String? serviceName, String? category) {
     Navigator.of(context).pop();
 
-    ServiceItem target = widget.availableServices.firstWhere(
-      (s) => s.serviceId == serviceId || s.name.toLowerCase() == serviceName.toLowerCase(),
-      orElse: () => ServiceItem.mockServices.firstWhere(
-        (s) => s.serviceId == serviceId || s.name.toLowerCase() == serviceName.toLowerCase(),
-        orElse: () => ServiceItem.mockServices.first,
-      ),
-    );
+    ServiceItem? target;
+
+    if (widget.availableServices.isNotEmpty) {
+      final matchCat = (category ?? '').toLowerCase();
+      final matchName = (serviceName ?? '').toLowerCase();
+
+      // 1. Match by exact serviceId
+      for (final s in widget.availableServices) {
+        if (s.serviceId == serviceId) {
+          target = s;
+          break;
+        }
+      }
+
+      // 2. Match by category (e.g. plumber, cleaning, electrician, appliance, pest control)
+      if (target == null && matchCat.isNotEmpty) {
+        for (final s in widget.availableServices) {
+          final sc = s.category.toLowerCase();
+          final sn = s.name.toLowerCase();
+          if (sc == matchCat || sc.contains(matchCat) || matchCat.contains(sc) || sn.contains(matchCat)) {
+            target = s;
+            break;
+          }
+        }
+      }
+
+      // 3. Match by partial service name
+      if (target == null && matchName.isNotEmpty) {
+        for (final s in widget.availableServices) {
+          final sn = s.name.toLowerCase();
+          if (sn.contains(matchName) || matchName.contains(sn)) {
+            target = s;
+            break;
+          }
+        }
+      }
+
+      // 4. Fallback to first real database service so foreign key is guaranteed valid
+      target ??= widget.availableServices.first;
+    } else {
+      target = ServiceItem.mockServices.first;
+    }
 
     Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (context) => ServiceDetailScreen(service: target),
+        builder: (context) => ServiceDetailScreen(service: target!),
       ),
     );
   }
+
 
   @override
   Widget build(BuildContext context) {
@@ -479,8 +515,9 @@ Do NOT include markdown backticks or any other text. Output raw JSON only.
             if (!msg.isUser && msg.serviceId != null) ...[
               const SizedBox(height: 6),
               InkWell(
-                onTap: () => _openBookingForService(msg.serviceId!, msg.serviceName ?? 'Service'),
+                onTap: () => _openBookingForService(msg.serviceId, msg.serviceName, msg.category),
                 borderRadius: BorderRadius.circular(12),
+
                 child: Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(

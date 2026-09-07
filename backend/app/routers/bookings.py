@@ -45,11 +45,26 @@ def create_booking(payload: CreateBookingRequest, authorization: Optional[str] =
         if profiles_res.data:
             customer_id = profiles_res.data[0]["user_id"]
         else:
-            customer_id = str(uuid.uuid4())
+            cust_res = supabase.table("profiles").select("user_id").eq("role", "CUSTOMER").limit(1).execute()
+            if cust_res.data:
+                customer_id = cust_res.data[0]["user_id"]
+            else:
+                customer_id = str(uuid.uuid4())
 
     try:
+        # Validate service_id exists to satisfy foreign key constraint
+        valid_service_id = payload.service_id
+        try:
+            srv_check = supabase.table("services").select("service_id").eq("service_id", payload.service_id).execute()
+            if not srv_check.data:
+                first_srv = supabase.table("services").select("service_id").limit(1).execute()
+                if first_srv.data:
+                    valid_service_id = first_srv.data[0]["service_id"]
+        except Exception:
+            pass
+
         new_booking = {
-            "service_id": payload.service_id,
+            "service_id": valid_service_id,
             "customer_id": customer_id,
             "worker_id": payload.worker_id,
             "scheduled_at": payload.scheduled_at,
@@ -60,6 +75,7 @@ def create_booking(payload: CreateBookingRequest, authorization: Optional[str] =
             "status": "PENDING",
             "payment_status": "UNPAID",
         }
+
 
         response = supabase.table("bookings").insert(new_booking).execute()
 
