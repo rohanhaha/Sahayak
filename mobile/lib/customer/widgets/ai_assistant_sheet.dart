@@ -93,8 +93,7 @@ class _AiAssistantSheetState extends State<AiAssistantSheet> {
         headers: ApiConfig.headers(),
         body: jsonEncode({
 
-
-        final data = jsonDecode(response.body);
+      if (response.statusCode == 200) {
         setState(() {
           _messages.add(
             ChatMessage(
@@ -117,7 +116,7 @@ class _AiAssistantSheetState extends State<AiAssistantSheet> {
     _scrollToBottom();
   }
 
-  void _handleFallbackDiagnosis(String query) {
+
     final lower = query.toLowerCase();
     String reply = "I can connect you with a certified cooperative technician.";
     String? srvId;
