@@ -2,7 +2,9 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import '../models/service_item.dart';
+import '../../shared/api_client.dart';
 import '../screens/service_detail_screen.dart';
+
 
 class ChatMessage {
   final String text;
